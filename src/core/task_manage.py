@@ -33,7 +33,6 @@ class TaskManager:
         'person_detection': <json format for person detection result>}, ...]
         """
         try:
-            #frames = json.loads(requests.get(settings.STORAGE_SERVICE_API_URL+'/'+str(settings.COUNT_FRAMES_TO_PROCESS)).text)
             frames = self.storage_api.get_frames_to_pose_estimation(count=settings.COUNT_FRAMES_TO_PROCESS)
         except JsonRPCProxyError as e:
             logger.error(f'Произошла ошибка при получении списка фреймов из сервиса хранения: {e}, {type(e)}.')
