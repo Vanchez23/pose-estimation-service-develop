@@ -8,9 +8,6 @@ from json_rpc_proxy import JsonRPCProxy, JsonRPCProxyError
 from .utils import load_image
 import settings
 
-import requests
-import json
-
 logger = logging.getLogger(__name__)
 
 

@@ -4,7 +4,6 @@ import time
 import logging
 
 import settings
-# from .core.pose_estimation import PoseEstimator
 from src.core.pose_estimation import HRNetModel
 from src.hrnet.config import cfg, update_config
 from .core.task_manage import TaskManager
@@ -17,8 +16,6 @@ class BackgroundWorker:
     def __init__(self):
         self.is_running = False
         self.thread = None
-        # self.model = PoseEstimator(settings.POSE_ESTIMATION_MODEL_FOLDER,
-        #                            settings.POSE_ESTIMATION_MODEL_RESOLUTION)
         update_config(cfg, {'cfg': settings.POSE_ESTIMATION_CONFIG,
                             'modelDir': settings.POSE_ESTIMATION_MODEL_PATH})
         self.model = HRNetModel(cfg,

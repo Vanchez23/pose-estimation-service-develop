@@ -8,7 +8,7 @@ from src.core.utils import load_image
 
 
 @pytest.mark.parametrize('image_path, detection_count', [
-    (os.path.join(TEST_ROOT, 'resources', 'images', 'tmp.jpg'), [6, 6])])
+    (os.path.join(TEST_ROOT, 'resources', 'images', 'tmp.jpg'), [17, 17])])
 def test_retina_tool_detection(image_path, detection_count, pose_estimator):
     bboxes = [[461.07, 234.84, 634.97, 432.24], [661.55, 23.74, 759.93, 250.94]]
     image = load_image(image_path)

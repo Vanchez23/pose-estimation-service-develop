@@ -21,8 +21,7 @@ class HRNetModel:
             self.model = torch.nn.DataParallel(self.model, device_ids=self.cfg.GPUS).cuda()
 
     def crop_image(self, img:np.ndarray, bbox:(tuple,list)) -> np.ndarray:
-        h,w,_  = img.shape
-        cropped_img = img[bbox[1]*h:bbox[3]*h, bbox[0]*w:bbox[2]*w, :]
+        cropped_img = img[int(bbox[1]):int(bbox[3]), int(bbox[0]):int(bbox[2]), :]
         return cropped_img
 
     def preprocess_img(self, img: np.ndarray) -> np.ndarray:
@@ -38,8 +37,6 @@ class HRNetModel:
     def get_tensor(self, img: np.ndarray) -> torch.Tensor:
 
         img_tensor = torch.tensor(img, dtype=torch.float32).to(self.device)
-        #         img_tensor = img_tensor.float()  # uint8 to fp16/32
-        #         img_tensor /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img_tensor.ndimension() == 3:
             img_tensor = img_tensor.unsqueeze(0)
 
@@ -81,7 +78,7 @@ class HRNetModel:
         for bbox in bboxes:
             result = dict()
             crp_img = self.crop_image(image, bbox)
-            coords, confs = self(crp_img)
+            coords, confs = self.__call__(crp_img)
             for i, k_name in enumerate(self.keypoints_names):
                 result[k_name] = {'x': float(coords[i][0]),
                                   'y': float(coords[i][1]),

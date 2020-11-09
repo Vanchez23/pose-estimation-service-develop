@@ -3,7 +3,8 @@ import os
 import pytest
 
 import settings
-from src.core import PoseEstimator
+from src.core.pose_estimation import HRNetModel
+from src.hrnet.config import cfg, update_config
 from src.core import TaskManager
 
 TEST_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -11,8 +12,11 @@ TEST_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 @pytest.yield_fixture(scope='session')
 def pose_estimator():
-    pe = PoseEstimator(model_folder=settings.POSE_ESTIMATION_MODEL_FOLDER,
-                       resolution=settings.POSE_ESTIMATION_MODEL_RESOLUTION)
+    update_config(cfg, {'cfg': settings.POSE_ESTIMATION_CONFIG,
+                        'modelDir': settings.POSE_ESTIMATION_MODEL_PATH})
+    pe = HRNetModel(cfg,
+                    settings.POSE_ESTIMATION_MODEL_RESOLUTION,
+                    settings.DEVICE)
     yield pe
 
 

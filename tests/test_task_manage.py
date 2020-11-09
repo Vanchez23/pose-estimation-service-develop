@@ -28,7 +28,9 @@ def test_task_manager_predict_frames_using_model(task_manager, frames):
     task_manager.storage_path = settings.ROOT
     processed_frames = task_manager.detect_pose(frames)
     expected_keys = {'frame_id', 'duration', 'result'}
-    expected_results_keys = {'l_sho', 'r_sho', 'l_elb', 'r_elb', 'l_wri', 'r_wri'}
+    expected_results_keys = {"nose","l_eye","r_eye","l_ear","r_ear","l_shoulder","r_shoulder",
+                             "l_elbow","r_elbow","l_wrist","r_wrist","l_hip","r_hip","l_knee",
+                             "r_knee","l_ankle","r_ankle"}
     assert len(processed_frames) == len(frames)
     for processed_task in processed_frames:
         assert expected_keys.intersection(processed_task.keys()) == expected_keys
