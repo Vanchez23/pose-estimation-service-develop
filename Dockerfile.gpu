@@ -1,0 +1,18 @@
+FROM gitlab.sch.ocrv.com.rzd:4567/public-repos/docker-images/tf-simple-human-pose-gpu:latest
+
+EXPOSE 80
+
+COPY requirements-base.txt .
+COPY requirements-gpu.txt .
+
+RUN git config --global http.sslVerify false && \
+    pip install --upgrade pip && pip install -r requirements-gpu.txt --no-cache-dir && \
+    mkdir -p /opt/service
+
+WORKDIR /opt/service
+
+COPY . .
+RUN cp settings/local.py.docker settings/local.py
+
+ENTRYPOINT ["python", "manage.py"]
+CMD ["run"]

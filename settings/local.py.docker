@@ -1,0 +1,52 @@
+import os
+import sys
+
+
+HOST = os.getenv('HOST', '0.0.0.0')
+PORT = os.getenv('PORT', 80)
+
+TESTING_MODE = bool(int(os.getenv('TESTING_MODE', 0)))
+EXECUTOR_MODE = bool(int(os.getenv('EXECUTOR_MODE', 1)))
+
+STORAGE_SERVICE_API_URL = os.getenv('STORAGE_SERVICE_API_URL', 'http://127.0.0.1:8000/api/v1')
+
+DEBUG_MODE = bool(int(os.getenv('DEBUG_MODE', 0)))
+
+DEFAULT_LOGGING_LEVEL = 'DEBUG' if DEBUG_MODE is True else 'INFO'
+LOGGING_LEVEL = os.getenv('LOGGING_LEVEL', DEFAULT_LOGGING_LEVEL)
+EXTERNAL_LOGGING_ID = os.getenv('EXTERNAL_LOGGING_ID', 'TOOL-DETECTION-SERVICE-0')
+
+GPU_MODE = bool(int(os.getenv('GPU_MODE', 0)))
+GPU_MEM_SPACE = float(os.getenv('GPU_MEM_SPACE', 0.5))
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': f'[{EXTERNAL_LOGGING_ID}] [%(levelname)s] %(asctime)s [%(name)s:%(funcName)s] %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+            'stream': sys.stdout,
+        }
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': LOGGING_LEVEL,
+    },
+    'loggers': {
+        '': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        }
+    }
+}
+
+# количество кадров при получении задачи:
+COUNT_FRAMES_TO_PROCESS = int(os.getenv('COUNT_FRAMES_TO_PROCESS', 10))
