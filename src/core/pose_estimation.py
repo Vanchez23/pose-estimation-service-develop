@@ -78,7 +78,7 @@ class HRNetModel:
         for bbox in bboxes:
             result = dict()
             crp_img = self.crop_image(image, bbox)
-            coords, confs = self.__call__(crp_img)
+            coords, confs = self(crp_img)
             for i, k_name in enumerate(self.keypoints_names):
                 result[k_name] = {'x': float(coords[i][0]),
                                   'y': float(coords[i][1]),

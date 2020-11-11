@@ -13,4 +13,4 @@ STORAGE_PATH = os.path.join(ROOT, 'file_storage')
 
 TASK_TIMEOUT = 5
 
-VERSION = 'v0.2.0'
+VERSION = 'v0.3.0'
