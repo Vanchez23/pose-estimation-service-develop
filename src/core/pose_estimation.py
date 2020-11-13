@@ -157,11 +157,13 @@ class PoseEstimator:
         (x, y, v) для одной точки идут подряд. Переменная v
         используется для предстказания видимости точки (нам не нужна).
         """
-        keypoints = keypoints[5 * 3:11 * 3]
-        score = score[5:11]
-        names = KEYPOINTS_NAMES[5:11]
+        # keypoints = keypoints[5 * 3:11 * 3]
+        # score = score[5:11]
+        # names = KEYPOINTS_NAMES[5:11]
+        names = KEYPOINTS_NAMES
         result = {}
-        pts_count = 6
+        # pts_count = 6
+        pts_count = 17
         for i, name in enumerate(names):
             x = float(round(keypoints[i * 3] / self.width, ndigits))
             y = float(round(keypoints[i * 3 + 1] / self.height, ndigits))
@@ -170,7 +172,10 @@ class PoseEstimator:
                 x, y = None, None
                 pts_count -= 1
 
-            result[name[:5]] = {'x': x,
+            # result[name[:5]] = {'x': x,
+            #                     'y': y,
+            #                     'proba': float(round(score[i], ndigits))}
+            result[name] = {'x': x,
                                 'y': y,
                                 'proba': float(round(score[i], ndigits))}
 
@@ -251,5 +256,6 @@ class PoseEstimator:
         for i in range(len(kps_result)):
             result = self.filter_hands(kps_result[i], score_result_keypoints[i], ndigits)
             answers.append(result)
+            # answers.append(kps_result[i])
 
         return answers
