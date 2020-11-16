@@ -80,9 +80,9 @@ class HRNetModel:
             crp_img = self.crop_image(image, bbox)
             coords, confs = self(crp_img)
             for i, k_name in enumerate(self.keypoints_names):
-                result[k_name] = {'x': float(coords[i][0]),
-                                  'y': float(coords[i][1]),
+                result[k_name] = {'x': bbox[0] + float(coords[i][0]),
+                                  'y': bbox[1] + float(coords[i][1]),
                                   'proba': float(round(confs[i][0], ndigits))}
-            answers.append(result)
+                answers.append(result)
 
         return answers

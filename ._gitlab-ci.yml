@@ -1,0 +1,411 @@
+variables:
+  IMAGE_NAME: ${CI_PROJECT_NAME}:${CI_COMMIT_REF_NAME}
+  CONTAINER_NAME: ${CI_PROJECT_NAME}
+  COMMIT_URL: ${CI_PROJECT_URL}/commit/${CI_COMMIT_SHA}
+  PIPELINE_URL: ${CI_PROJECT_URL}/pipelines/${CI_PIPELINE_ID}
+  DISCORD_URL: "https://discordapp.com/api/webhooks/544831715101769738/pKLczlnS2Fd32uWXouDMKpuxQv3a9rnKxr0tI_k4hkHFp7WYf2fftGdGdfWQul_dCRfL"
+
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+
+stages:
+- build_gpu+test
+- build_gpu+test_notify
+- build_cpu+test
+- build_cpu+test_notify
+- deploy_cpu_develop_0
+- deploy_cpu_develop_1
+- deploy_cpu_develop_notify
+- deploy_tesla_master_0
+#- deploy_tesla_master_1
+#- deploy_tesla_master_2
+- deploy_tesla_master_notify
+- build_cpu+registry_push
+- build_cpu+registry_push_notify
+- build_gpu+registry_push
+- build_gpu+registry_push_notify
+
+
+branch_build_cpu+test:
+  stage: build_cpu+test
+  tags:
+  - ai-nn-cv-test
+  image: docker:stable
+  services:
+  - name: docker:dind
+    alias: docker
+  variables:
+    IMAGE_NAME: ${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}
+  script:
+  - mv Dockerfile.cpu Dockerfile
+  - docker build --cache-from $IMAGE_NAME --tag $IMAGE_NAME .
+  - docker stop ${CONTAINER_NAME} || echo
+  - docker rm ${CONTAINER_NAME} || echo
+  - docker run
+    --name $CONTAINER_NAME
+    -e EXECUTOR_MODE=0
+    -e TESTING_MODE=1
+    -e DEBUG_MODE=1
+    -e GPU_MODE=0
+    -e COUNT_FRAMES_TO_PROCESS=10
+    -v /home/developer/service_models/pose_estimation/:/opt/service/models/
+    $IMAGE_NAME
+    test --coverage
+  except:
+  - tags
+  - develop
+
+
+branch_build_gpu+test:
+  stage: build_gpu+test
+  tags:
+  - ai-nn-cv-dgx-station
+  image: docker:stable
+  services:
+  - name: docker:dind
+    alias: docker
+  variables:
+    IMAGE_NAME: ${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}
+  script:
+  - mv Dockerfile.gpu Dockerfile
+  - docker build --cache-from $IMAGE_NAME --tag $IMAGE_NAME .
+  - docker stop ${CONTAINER_NAME} || echo
+  - docker rm ${CONTAINER_NAME} || echo
+  - docker run
+    --name $CONTAINER_NAME
+    -e EXECUTOR_MODE=0
+    -e TESTING_MODE=1
+    -e DEBUG_MODE=1
+    -e GPU_MODE=1
+    -e GPU_MEM_SPACE=0.1
+    -e NVIDIA_VISIBLE_DEVICES=3
+    -e COUNT_FRAMES_TO_PROCESS=100
+    -v /home/developer/service_models/pose_estimation/:/opt/service/models/
+    $IMAGE_NAME
+    test --coverage
+  except:
+  - tags
+  - develop
+
+
+develop_build_cpu+test:
+  stage: build_cpu+test
+  tags:
+  - ai-nn-cv-test
+  image: docker:stable
+  services:
+  - name: docker:dind
+    alias: docker
+  variables:
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-cpu:latest
+  script:
+  - mv Dockerfile.cpu Dockerfile
+  - docker build --cache-from $IMAGE_NAME --tag $IMAGE_NAME .
+  - docker stop ${CONTAINER_NAME} || echo
+  - docker rm ${CONTAINER_NAME} || echo
+  - docker run
+    --name $CONTAINER_NAME
+    -e EXECUTOR_MODE=0
+    -e TESTING_MODE=1
+    -e DEBUG_MODE=1
+    -e GPU_MODE=0
+    -e COUNT_FRAMES_TO_PROCESS=10
+    -v /home/developer/service_models/pose_estimation/:/opt/service/models/
+    $IMAGE_NAME
+    test --coverage
+  - docker push $IMAGE_NAME
+  only:
+  - develop
+
+develop_build_gpu+test:
+  stage: build_gpu+test
+  tags:
+  - ai-nn-cv-dgx-station
+  image: docker:stable
+  services:
+  - name: docker:dind
+    alias: docker
+  variables:
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-gpu:latest
+  script:
+  - mv Dockerfile.gpu Dockerfile
+  - docker build --cache-from $IMAGE_NAME --tag $IMAGE_NAME .
+  - docker stop ${CONTAINER_NAME} || echo
+  - docker rm ${CONTAINER_NAME} || echo
+  - docker run
+    --name $CONTAINER_NAME
+    -e EXECUTOR_MODE=0
+    -e TESTING_MODE=1
+    -e DEBUG_MODE=1
+    -e GPU_MODE=1
+    -e GPU_MEM_SPACE=0.1
+    -e NVIDIA_VISIBLE_DEVICES=3
+    -e COUNT_FRAMES_TO_PROCESS=100
+    -v /home/developer/service_models/pose_estimation/:/opt/service/models/
+    $IMAGE_NAME
+    test --coverage
+  - docker push $IMAGE_NAME
+  only:
+  - develop
+
+.deploy_script: &deploy_script_definition
+  script:
+    - mv ${DOCKERFILE} Dockerfile
+    - docker build --cache-from $IMAGE_NAME --tag $IMAGE_NAME .
+    - docker stop ${CONTAINER_NAME} || echo
+    - docker rm ${CONTAINER_NAME} || echo
+    - docker run -d
+      --name ${CONTAINER_NAME}
+      --restart unless-stopped
+      -p 127.0.0.1:${PORT}:80
+      -e TESTING_MODE=0
+      -e DEBUG_MODE=0
+      -e EXECUTOR_MODE=1
+      -e GPU_MEM_SPACE=${GPU_MEM_SPACE}
+      -e GPU_MODE=${GPU_MODE}
+      -e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES}
+      -e STORAGE_SERVICE_API_URL=${STORAGE_SERVICE_API_URL}
+      -e EXTERNAL_LOGGING_ID=${EXTERNAL_LOGGING_ID}
+      -e COUNT_FRAMES_TO_PROCESS=${COUNT_FRAMES_TO_PROCESS}
+      -v /home/developer/service_models/pose_estimation/:/opt/service/models/
+      -v /home/developer/file_storage/:/opt/service/file_storage/
+      ${IMAGE_NAME}
+
+deploy_develop_0:
+  variables:
+    DOCKERFILE: Dockerfile.cpu
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-cpu:latest
+    CONTAINER_NAME: ${CI_PROJECT_NAME}-develop-0
+    GPU_MODE: 0
+    GPU_MEM_SPACE: "0.5"
+    NVIDIA_VISIBLE_DEVICES: 3
+    EXTERNAL_LOGGING_ID: POSE-ESTIMATION-SERVICE-0
+    PORT: 8050
+    COUNT_FRAMES_TO_PROCESS: 10
+  stage: deploy_cpu_develop_0
+  tags:
+  - ai-nn-cv-test
+  <<: *deploy_script_definition
+  only:
+  - develop
+
+deploy_develop_1:
+  variables:
+    DOCKERFILE: Dockerfile.cpu
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-cpu:latest
+    CONTAINER_NAME: ${CI_PROJECT_NAME}-develop-1
+    GPU_MODE: 0
+    GPU_MEM_SPACE: "0.5"
+    NVIDIA_VISIBLE_DEVICES: 3
+    EXTERNAL_LOGGING_ID: POSE-ESTIMATION-SERVICE-1
+    PORT: 8051
+    COUNT_FRAMES_TO_PROCESS: 10
+  stage: deploy_cpu_develop_1
+  tags:
+  - ai-nn-cv-test
+  <<: *deploy_script_definition
+  only:
+  - develop
+
+deploy_tesla_master_0:
+  variables:
+    DOCKERFILE: Dockerfile.gpu
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-gpu:latest
+    CONTAINER_NAME: ${CI_PROJECT_NAME}-master-0
+    GPU_MODE: 1
+    GPU_MEM_SPACE: "0.1"
+    NVIDIA_VISIBLE_DEVICES: 3
+    EXTERNAL_LOGGING_ID: POSE-ESTIMATION-SERVICE-0
+    PORT: 8050
+    COUNT_FRAMES_TO_PROCESS: 50
+  stage: deploy_tesla_master_0
+  tags:
+  - ai-nn-cv-dgx-station
+  <<: *deploy_script_definition
+  only:
+  - master
+
+#deploy_tesla_master_1:
+#  variables:
+#    DOCKERFILE: Dockerfile.gpu
+#    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-gpu:latest
+#    CONTAINER_NAME: ${CI_PROJECT_NAME}-master-1
+#    GPU_MODE: 1
+#    GPU_MEM_SPACE: "0.1"
+#    NVIDIA_VISIBLE_DEVICES: 0
+#    EXTERNAL_LOGGING_ID: POSE-ESTIMATION-SERVICE-1
+#    PORT: 8051
+#    COUNT_FRAMES_TO_PROCESS: 50
+#  stage: deploy_tesla_master_1
+#  tags:
+#  - ai-nn-cv-dgx-station
+#  <<: *deploy_script_definition
+#  only:
+#  - master
+#
+#deploy_tesla_master_2:
+#  variables:
+#    DOCKERFILE: Dockerfile.gpu
+#    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-gpu:latest
+#    CONTAINER_NAME: ${CI_PROJECT_NAME}-master-2
+#    GPU_MODE: 1
+#    GPU_MEM_SPACE: "0.1"
+#    NVIDIA_VISIBLE_DEVICES: 3
+#    EXTERNAL_LOGGING_ID: POSE-ESTIMATION-SERVICE-2
+#    PORT: 8052
+#    COUNT_FRAMES_TO_PROCESS: 50
+#  stage: deploy_tesla_master_2
+#  tags:
+#  - ai-nn-cv-dgx-station
+#  <<: *deploy_script_definition
+#  only:
+#  - master
+
+build_cpu+registry_push:
+  stage: build_cpu+registry_push
+  tags:
+  - ai-nn-cv-test
+  when: on_success
+  variables:
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-cpu:${CI_COMMIT_TAG}
+  script:
+    - mv Dockerfile.cpu Dockerfile
+    - docker build -t $IMAGE_NAME .
+    - docker push $IMAGE_NAME
+  only:
+  - tags
+
+build_gpu+registry_push:
+  stage: build_gpu+registry_push
+  tags:
+  - ai-nn-cv-dgx-station
+  when: on_success
+  variables:
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}-gpu:${CI_COMMIT_TAG}
+  script:
+    - mv Dockerfile.gpu Dockerfile
+    - docker build -t $IMAGE_NAME .
+    - docker push $IMAGE_NAME
+  only:
+  - tags
+
+build_cpu_notify_success:
+  stage: build_cpu+test_notify
+  tags:
+  - ai-nn-cv-test
+  when: on_success
+  except:
+  - tags
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"🌴🌱 CPU TEST '"$CI_PROJECT_NAME"' SUCCESS 🌿🌳"}]}'
+
+build_cpu_notify_failure:
+  stage: build_cpu+test_notify
+  tags:
+  - ai-nn-cv-test
+  when: on_failure
+  except:
+  - tags
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"🍎🥩 CPU TEST '"$CI_PROJECT_NAME"' FAILURE 🍒🥓"}]}'
+
+build_gpu_notify_success:
+  stage: build_gpu+test_notify
+  tags:
+  - ai-nn-cv-dgx-station
+  when: on_success
+  except:
+  - tags
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"🌴🌱 GPU TEST '"$CI_PROJECT_NAME"' SUCCESS 🌿🌳"}]}'
+
+build_gpu_notify_failure:
+  stage: build_gpu+test_notify
+  tags:
+  - ai-nn-cv-dgx-station
+  when: on_failure
+  except:
+  - tags
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"🍎🥩 GPU TEST '"$CI_PROJECT_NAME"' FAILURE 🍒🥓"}]}'
+
+deploy_cpu_develop_notify_success:
+  stage: deploy_cpu_develop_notify
+  tags:
+  - ai-nn-cv-test
+  when: on_success
+  only:
+  - develop
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"🌴🌱 DEPLOY '"$CI_PROJECT_NAME"' SUCCESS 🌿🌳"}]}'
+
+deploy_cpu_develop_notify_failure:
+  stage: deploy_cpu_develop_notify
+  tags:
+  - ai-nn-cv-test
+  when: on_failure
+  only:
+  - develop
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"🍎🥩 DEPLOY '"$CI_PROJECT_NAME"' FAILURE 🍒🥓"}]}'
+
+deploy_tesla_develop_notify_success:
+  stage: deploy_tesla_master_notify
+  tags:
+  - ai-nn-cv-dgx-station
+  when: on_success
+  only:
+  - master
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"🌴🌱 TESLA DEPLOY '"$CI_PROJECT_NAME"' SUCCESS 🌿🌳"}]}'
+
+deploy_tesla_develop_notify_failure:
+  stage: deploy_tesla_master_notify
+  tags:
+  - ai-nn-cv-dgx-station
+  when: on_failure
+  only:
+  - master
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"🍎🥩 TESLA DEPLOY '"$CI_PROJECT_NAME"' FAILURE 🍒🥓"}]}'
+
+build_cpu+registry_push_success:
+  stage: build_cpu+registry_push_notify
+  tags:
+  - ai-nn-cv-test
+  when: on_success
+  only:
+  - tags
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"👻 RELEASE '"$CI_PROJECT_NAME"'-cpu:'"$CI_COMMIT_TAG"' SUCCESS 👻"}]}'
+
+build_cpu+registry_push_failure:
+  stage: build_cpu+registry_push_notify
+  tags:
+  - ai-nn-cv-test
+  when: on_failure
+  only:
+    - tags
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"👿 RELEASE '"$CI_PROJECT_NAME"'-cpu:'"$CI_COMMIT_TAG"' FAILURE 👿"}]}'
+
+build_gpu+registry_push_success:
+  stage: build_gpu+registry_push_notify
+  tags:
+  - ai-nn-cv-dgx-station
+  when: on_success
+  only:
+  - tags
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"👻 RELEASE '"$CI_PROJECT_NAME"'-gpu:'"$CI_COMMIT_TAG"' SUCCESS 👻"}]}'
+
+build_gpu+registry_push_failure:
+  stage: build_gpu+registry_push_notify
+  tags:
+  - ai-nn-cv-dgx-station
+  when: on_failure
+  only:
+    - tags
+  script:
+  - curl -X "POST" $DISCORD_URL --data $'{"username":"GitLab BOT [Нормирование рабочего времени]","embeds":[{"url":"'"$PIPELINE_URL"'","title":"👿 RELEASE '"$CI_PROJECT_NAME"'-gpu:'"$CI_COMMIT_TAG"' FAILURE 👿"}]}'
