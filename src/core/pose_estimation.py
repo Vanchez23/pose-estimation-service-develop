@@ -165,8 +165,10 @@ class PoseEstimator:
         # pts_count = 6
         pts_count = 17
         for i, name in enumerate(names):
-            x = float(round(keypoints[i * 3] / self.width, ndigits))
-            y = float(round(keypoints[i * 3 + 1] / self.height, ndigits))
+            x = float(keypoints[i * 3])
+            y = float(keypoints[i * 3 + 1])
+            # x = float(round(keypoints[i * 3] / self.width, ndigits))
+            # y = float(round(keypoints[i * 3 + 1] / self.height, ndigits))
 
             if keypoints[i * 3] == 0 and keypoints[i * 3 + 1] == 0 and keypoints[i * 3 + 2] == 0:
                 x, y = None, None
@@ -256,6 +258,5 @@ class PoseEstimator:
         for i in range(len(kps_result)):
             result = self.filter_hands(kps_result[i], score_result_keypoints[i], ndigits)
             answers.append(result)
-            # answers.append(kps_result[i])
 
         return answers

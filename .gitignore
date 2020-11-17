@@ -19,3 +19,5 @@ models/*
 !models/.gitkeep
 output/*
 lib
+src/.ipynb_checkpoints/
+src/core/.ipynb_checkpoints/
