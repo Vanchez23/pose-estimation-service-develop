@@ -12,7 +12,7 @@ from src.utils.utils_hrnet import get_max_preds
 
 class HRNetModel:
 
-    def __init__(self, cfg, img_size:(tuple,list), device:str, make_preprocess=False):
+    def __init__(self, cfg, img_size:(tuple,list), device:str, make_preprocess=True):
 
         # cudnn related setting
         cudnn.benchmark = cfg.CUDNN.BENCHMARK
@@ -84,46 +84,44 @@ class HRNetModel:
 
         return trans
 
-    def affine_transform(self, pt, t):
+    def _affine_transform(self, pt, t):
         new_pt = np.array([pt[0], pt[1], 1.]).T
         new_pt = np.dot(t, new_pt)
         return new_pt[:2]
 
-    def crop_image(self, image, bbox):
-        """
-        Вырезает прямоугольник из картинки
-        с использованием афинных трансформаций.
-        Взят у авторов сети.
-        """
-        # img = image.copy()
-        img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
+    def _get_center(self,bbox):
         x, y, w, h = bbox
-        # w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        # aspect_ratio = cfg.input_shape[1] / cfg.input_shape[0]
-        aspect_ratio = self.img_size[1] / self.img_size[0]
         center = np.zeros((2), dtype=np.float32)
         center[0] = x + w * 0.5
         center[1] = y + h * 0.5
-        if w > aspect_ratio * h:
-            h = w / aspect_ratio
-        elif w < aspect_ratio * h:
-            w = h * aspect_ratio
-        if center[0] != -1:
-            scale = np.array([w, h], dtype=np.float32) * 1.25
+        return center
+
+    def _get_scale(self, bbox_w, bbox_h, width, height):
+        aspect_ratio = height / width
+        if bbox_w > aspect_ratio * bbox_h:
+            bbox_h = bbox_w / aspect_ratio
+        elif bbox_w < aspect_ratio * bbox_h:
+            bbox_w = bbox_h * aspect_ratio
+
+        scale = np.array([bbox_w, bbox_h], dtype=np.float32) * 1.25
+        return scale
+
+    def transform_preds(self,coords, center, scale, output_size):
+        target_coords = np.zeros(coords.shape)
+        trans = self._get_affine_transform(center, scale, 0, output_size, inv=1)
+        for p in range(coords.shape[0]):
+            target_coords[p, 0:2] = self._affine_transform(coords[p, 0:2], trans)
+        return target_coords
+
+    def preprocess_img(self, img:np.ndarray, bbox:list) -> tuple:
+
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        center = self._get_center(bbox)
+        scale = self._get_scale(bbox[2],bbox[3], self.img_size[1],self.img_size[0])
         rotation = 0
 
-        # trans = self._get_affine_transform(center, scale, rotation, (cfg.input_shape[1], cfg.input_shape[0]))
-        # cropped_img = cv2.warpAffine(img, trans, (cfg.input_shape[1], cfg.input_shape[0]), flags=cv2.INTER_LINEAR)
-
-        trans = self._get_affine_transform(center, scale, rotation, (192,256))
-        cropped_img = cv2.warpAffine(img, trans, (192,256), flags=cv2.INTER_LINEAR)
-
-        crop_info = np.asarray([center[0] - scale[0] * 0.5, center[1] - scale[1] * 0.5, center[0] + scale[0] * 0.5,
-                                center[1] + scale[1] * 0.5])
-
-        h_ratio = img.shape[0] / cropped_img.shape[0] * 4
-        w_ratio = img.shape[1] / cropped_img.shape[1] * 4
+        trans = self._get_affine_transform(center, scale, rotation, (self.img_size[1],self.img_size[0]))
+        cropped_img = cv2.warpAffine(img, trans, (self.img_size[1],self.img_size[0]), flags=cv2.INTER_LINEAR)
 
         meta = {'center': center,
                 'scale': scale,
@@ -131,13 +129,6 @@ class HRNetModel:
                 'trans': trans}
 
         return cropped_img, meta
-
-    def transform_preds(self,coords, center, scale, output_size):
-        target_coords = np.zeros(coords.shape)
-        trans = self._get_affine_transform(center, scale, 0, output_size, inv=1)
-        for p in range(coords.shape[0]):
-            target_coords[p, 0:2] = self.affine_transform(coords[p, 0:2], trans)
-        return target_coords
 
     def preprocess_bbox(self, bbox:(list, tuple), width, height) -> list:
         x1, y1, x2, y2 = bbox
@@ -150,38 +141,26 @@ class HRNetModel:
 
         return np.array([x1,y1, x2-x1, y2-y1],dtype=np.float64)
 
-    def preprocess_img(self, img: np.ndarray) -> np.ndarray:
-        img_res = img
-        # img_res = cv2.resize(img, (self.img_size[1], self.img_size[0]))
-        # img_res = cv2.cvtColor(img_res, cv2.COLOR_BGR2RGB)
-        # h_ratio = img.shape[0] / img_res.shape[0] * 4
-        # w_ratio = img.shape[1] / img_res.shape[1] * 4
-        img_res = img_res.transpose(2, 0, 1)
-
-        # return img_res, h_ratio, w_ratio
-        return img_res
-
     def get_tensor(self, img: np.ndarray) -> torch.Tensor:
-        img_tensor = img
-        # img_tensor = torch.tensor(img, dtype=torch.float32).to(self.device)
-        # img_tensor = self.normalize(img_tensor)
+
+        img_tensor = self.transforms(img)
         if img_tensor.ndimension() == 3:
             img_tensor = img_tensor.unsqueeze(0)
 
         return img_tensor
 
-    def predict_tensor(self, tensor: torch.Tensor) -> tuple:
+    def predict_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
 
         output = self.model(tensor)
 
         return output
 
-    def postprocess(self, heatmaps: torch.Tensor, meta:dict) -> tuple:
+    def postprocess(self, heatmaps: np.ndarray, meta:dict) -> tuple:
 
         heatmap_height = heatmaps.shape[2]
         heatmap_width = heatmaps.shape[3]
 
-        coords, maxvals = get_max_preds(heatmaps.cpu().detach().numpy())
+        coords, maxvals = get_max_preds(heatmaps)
 
         for p in range(coords.shape[1]):
             hm = heatmaps[0][p]
@@ -190,8 +169,8 @@ class HRNetModel:
             if 1 < px < heatmap_width-1 and 1 < py < heatmap_height-1:
                 diff = np.array(
                     [
-                        (hm[py][px+1] - hm[py][px-1]).cpu().detach().numpy(),
-                        (hm[py+1][px]-hm[py-1][px]).cpu().detach().numpy()
+                        hm[py][px+1] - hm[py][px-1],
+                        hm[py+1][px]-hm[py-1][px]
                     ]
                 )
                 coords[0][p] += np.sign(diff) * .25
@@ -205,36 +184,35 @@ class HRNetModel:
 
         return new_preds[0], maxvals[0]
 
+    def predict(self,  img: (str, np.ndarray), bbox = None, meta = None) -> tuple:
+        return self(img, bbox, meta)
 
-    def __call__(self, img: (str, np.ndarray), meta: dict) -> tuple:
+    def __call__(self, img: (str, np.ndarray), bbox = None, meta = None) -> tuple:
 
         if isinstance(img, str):
             img = cv2.imread(img)
 
-        # if self.make_preprocess:
-        #     # img, h_ratio, w_ratio = self.preprocess_img(img)
-        #     img = self.preprocess_img(img)
+        if self.make_preprocess:
+            if bbox is None:
+                bbox = [0, 0, img.shape[1], img.shape[0]]
+            bbox = self.preprocess_bbox(bbox, img.shape[1], img.shape[0])
+            img,meta = self.preprocess_img(img, bbox)
         with torch.no_grad():
-            tensor = self.get_tensor(self.transforms(img))
-            torch.save(tensor, 'input_tensor.pt')
+            tensor = self.get_tensor(img)
             output = self.predict_tensor(tensor)
-            torch.save(output, 'output_tensor.pt')
-            coords, confs = self.postprocess(output, meta)
+            coords, confs = self.postprocess(output.clone().cpu().numpy(), meta)
 
         return coords, confs
 
-    def predict(self, image:np.ndarray, bboxes:(tuple,list), ndigits=3) -> list:
+    def predict_bboxes(self, image:np.ndarray, bboxes:(tuple,list), ndigits=3) -> list:
 
         answers = []
         for bbox in bboxes:
-            bbox = self.preprocess_bbox(bbox, image.shape[1], image.shape[0]) # reverse width and height because it is like in original implementation
             result = dict()
-            crp_img,meta = self.crop_image(image, bbox)
-            coords, confs = self(crp_img,meta)
+            coords, confs = self(image,bbox)
             for i, k_name in enumerate(self.keypoints_names):
                 result[k_name] = {'x': float(coords[i][0]),
                                   'y': float(coords[i][1]),
                                   'proba': float(round(confs[i][0], ndigits))}
-                answers.append(result)
-
+            answers.append(result)
         return answers

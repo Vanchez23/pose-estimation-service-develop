@@ -3,6 +3,9 @@ import threading
 import time
 import logging
 
+import torch
+import torch.backends.cudnn as cudnn
+
 import settings
 from src.core.pose_estimation import HRNetModel
 from src.hrnet.config import cfg, update_config
@@ -10,6 +13,9 @@ from .core.task_manage import TaskManager
 
 logger = logging.getLogger(__name__)
 
+cudnn.benchmark = cfg.CUDNN.BENCHMARK
+torch.backends.cudnn.deterministic = cfg.CUDNN.DETERMINISTIC
+torch.backends.cudnn.enabled = cfg.CUDNN.ENABLED
 
 class BackgroundWorker:
 

@@ -88,10 +88,7 @@ class TaskManager:
 
                 t = time.time()
 
-                detections = []
-                for bbox in list_bboxes:
-                    detection = self.model.predict(image, [bbox], ndigits)[0]
-                    detections.append(detection)
+                detections = self.model.predict_bboxes(image, list_bboxes, ndigits)
 
                 duration = time.time() - t
 

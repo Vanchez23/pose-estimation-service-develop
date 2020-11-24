@@ -1,2 +1,0 @@
--r requirements-base.txt
-tensorflow==1.14.0
