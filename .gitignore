@@ -12,7 +12,7 @@ parser.out
 output
 .pytest_cache/
 .vscode/
-.ipynb_checkpoints/
+*/.ipynb_checkpoints/
 venv
 file_storage/*
 !file_storage/.gitkeep

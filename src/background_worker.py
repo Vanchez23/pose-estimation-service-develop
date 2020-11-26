@@ -8,7 +8,7 @@ import torch.backends.cudnn as cudnn
 
 import settings
 from src.core.pose_estimation import HRNetModel
-from src.hrnet.config import cfg, update_config
+from settings.hrnet.config import cfg, update_config
 from .core.task_manage import TaskManager
 
 logger = logging.getLogger(__name__)

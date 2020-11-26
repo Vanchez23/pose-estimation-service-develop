@@ -4,7 +4,7 @@ import pytest
 
 import settings
 from src.core.pose_estimation import HRNetModel
-from src.hrnet.config import cfg, update_config
+from settings.hrnet.config import cfg, update_config
 from src.core import TaskManager
 
 TEST_ROOT = os.path.abspath(os.path.dirname(__file__))
