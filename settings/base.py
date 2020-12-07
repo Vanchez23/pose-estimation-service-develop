@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 POSE_ESTIMATION_CONFIG = os.path.join(ROOT, 'settings/hrnet/w32_256x192_adam_lr1e-3.yaml')
 POSE_ESTIMATION_MODEL_PATH = os.path.join(ROOT, 'models/hrnet/pose_hrnet_w32_256x192.pth')
 POSE_ESTIMATION_MODEL_RESOLUTION = (256, 192)
-DEVICE = '0'
 
 STORAGE_PATH = os.path.join(ROOT, 'file_storage')
 

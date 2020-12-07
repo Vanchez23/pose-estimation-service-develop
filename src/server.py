@@ -28,7 +28,7 @@ class Server:
                     f' MODEL RESOLUTION: {settings.POSE_ESTIMATION_MODEL_RESOLUTION},'
                     f' STORAGE PATH: {settings.STORAGE_PATH},'
                     f' STORAGE_SERVICE_API_URL: {settings.STORAGE_SERVICE_API_URL},'
-                    f' GPU_MODE: {settings.GPU_MODE},'
+                    f' DEVICE: {settings.DEVICE},'
                     f' COUNT_FRAMES_TO_PROCESS: {settings.COUNT_FRAMES_TO_PROCESS}')
 
         logger.info('Service has been started.')

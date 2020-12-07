@@ -25,7 +25,7 @@ class HRNetModel:
         self.make_preprocess = make_preprocess
         self.keypoints_names = self.cfg.KEYPOINTS_NAMES
         self.model = get_pose_net(self.cfg, is_train=False)
-        self.model.load_state_dict(torch.load(self.cfg.OUTPUT_DIR), strict=False)
+        self.model.load_state_dict(torch.load(self.cfg.OUTPUT_DIR,map_location=self.device), strict=False)
         if self.device.type != 'cpu':
             self.model = torch.nn.DataParallel(self.model, device_ids=self.cfg.GPUS).cuda()
         self.model.eval()

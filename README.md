@@ -28,7 +28,8 @@
 - "y": \<coordinate y\>,  
 - "proba": \<proba\>,  
 },...], где  
-- \<point_name\> - название точки из списка: ['l_sho', 'r_sho', 'l_elb', 'r_elb', 'l_wri', 'r_wri'] (str).  
+- \<point_name\> - название точки из списка: ["nose","l_eye","r_eye","l_ear","r_ear","l_shoulder","r_shoulder","l_elbow",
+  "r_elbow","l_wrist","r_wrist","l_hip","r_hip","l_knee","r_knee","l_ankle","r_ankle"] (str).  
 - \<x\> - индекс пикселя по ширине в относительных координатах (float);  
 - \<y\> - индекс пикселя по высоте в относительных координатах (float);  
 - \<proba\> - вероятность предсказания (float). 
@@ -38,6 +39,7 @@
 ```
 git clone https://gitlab.sch.ocrv.com.rzd/cv-working-time-regulation/pose-estimation-service.git
 cd pose-estimation-service
+git checkout hrnet
 ```
 2. Создание виртулаьного окружения 
 ```
@@ -50,11 +52,7 @@ virtualenv -p python3.6 venv
 pip install -r requirements.txt
 cp settings/local.py.default settings/local.py
 ```
-4. Установить библиотеку tf_simple_human_pose по аналогии с Dockerfile:
-```
-https://gitlab.sch.ocrv.com.rzd/public-repos/docker-images/blob/tf_human_pose_cpu
-```
-5. Скачать файл модели
+4. Скачать файл модели
 ```
 scp developer@172.22.100.219:/home/developer/service_models/pose_estimation/* models/
 ```

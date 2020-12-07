@@ -2,7 +2,7 @@ import os
 import sys
 
 
-HOST = os.getenv('HOST', '0.0.0.0')
+HOST = os.getenv('HOST', '127.0.0.1')
 PORT = os.getenv('PORT', 80)
 
 TESTING_MODE = bool(int(os.getenv('TESTING_MODE', 0)))
@@ -14,11 +14,9 @@ DEBUG_MODE = bool(int(os.getenv('DEBUG_MODE', 0)))
 
 DEFAULT_LOGGING_LEVEL = 'DEBUG' if DEBUG_MODE is True else 'INFO'
 LOGGING_LEVEL = os.getenv('LOGGING_LEVEL', DEFAULT_LOGGING_LEVEL)
-EXTERNAL_LOGGING_ID = os.getenv('EXTERNAL_LOGGING_ID', 'TOOL-DETECTION-SERVICE-0')
+EXTERNAL_LOGGING_ID = os.getenv('EXTERNAL_LOGGING_ID', 'POSE-DETECTION-SERVICE')
 
-GPU_MODE = bool(int(os.getenv('GPU_MODE', 0)))
-GPU_MEM_SPACE = float(os.getenv('GPU_MEM_SPACE', 0.5))
-
+DEVICE = os.getenv('DEVICE', 'cpu')
 
 LOGGING = {
     'version': 1,
